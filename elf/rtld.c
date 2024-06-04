@@ -1051,6 +1051,8 @@ static void
 load_audit_modules (struct link_map *main_map, struct audit_list *audit_list)
 {
   struct audit_ifaces *last_audit = NULL;
+  struct link_map *l;
+  Lmid_t nsid;
 
   while (true)
     {
@@ -1059,6 +1061,16 @@ load_audit_modules (struct link_map *main_map, struct audit_list *audit_list)
 	break;
       load_audit_module (name, &last_audit);
     }
+
+  /* Seal the audit modules and their dependencies.  It is done after the
+     the loading process (instead at loading time with RTLD_NODELETE), because
+     the module might be unloaded (due inexistent or wrong la_version).  */
+  for (nsid = LM_ID_BASE + 1; nsid < GL(dl_nns); nsid++)
+    for (l = GL(dl_ns)[nsid]._ns_loaded; l; l = l->l_next)
+      {
+	l->l_seal = 1;
+	_dl_mseal_map (l);
+      }
 
   /* Notify audit modules of the initially loaded modules (the main
      program and the dynamic linker itself).  */
