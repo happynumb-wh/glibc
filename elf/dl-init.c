@@ -19,8 +19,13 @@
 #include <assert.h>
 #include <stddef.h>
 #include <ldsodefs.h>
+#include <string.h>
 #include <elf-initfini.h>
 
+// dasics stage 3 should jump init main_map
+extern unsigned long dasics_flag;
+char * main_lib_linker = NULL;
+int dasics_first_dynamic = 0;
 
 static void
 call_init (struct link_map *l, int argc, char **argv, char **env)
@@ -38,6 +43,13 @@ call_init (struct link_map *l, int argc, char **argv, char **env)
      dependency.  */
   l->l_init_called = 1;
 
+
+  if (__glibc_unlikely(dasics_flag == 2) && l->l_addr == 0)
+   {
+    // _dl_debug_printf ("dasics stage 2 give up main's init\n");
+    return; 
+   }
+  
   /* Check for object which constructors we do not run here.  */
   if (__builtin_expect (l->l_name[0], 'a') == '\0'
       && l->l_type == lt_executable)
@@ -85,6 +97,14 @@ _dl_init (struct link_map *main_map, int argc, char **argv, char **env)
       GL(dl_initfirst) = NULL;
     }
 
+  // jump preinit for main map in dasics stage 3
+  if (__glibc_unlikely(dasics_flag == 2))
+  {
+    // _dl_debug_printf ("dasics stage 2 give up main's preinit\n");
+    goto jump;
+
+  }
+
   /* Don't do anything if there is no preinit array.  */
   if (__builtin_expect (preinit_array != NULL, 0)
       && preinit_array_size != NULL
@@ -111,11 +131,33 @@ _dl_init (struct link_map *main_map, int argc, char **argv, char **env)
      This is highly questionable since it puts the burden on the dynamic
      loader which has to find the dependencies at runtime instead of
      letting the user do it right.  Stupidity rules!  */
-
+jump:
   i = main_map->l_searchlist.r_nlist;
   while (i-- > 0)
     call_init (main_map->l_initfini[i], argc, argv, env);
 
+  // Let's put gotplt[2] be the plt_start for dasics! 
+  if (dasics_flag)
+  {
+    // Now, we can't resolve library's dasics init which load with dlopen
+    if (!dasics_first_dynamic) 
+    {
+      dasics_first_dynamic = 1;
+    }
+    else goto ret;
+
+    for (struct link_map * i = main_map; i != NULL; i = i->l_next)
+    {
+      if (!strcmp(i->l_name, main_lib_linker)) continue;
+      // NULL jump
+      if (i->l_info[DT_PLTGOT] == NULL) continue;
+
+      ElfW(Addr) *gotplt = (ElfW(Addr) *) (D_PTR (i, l_info[DT_PLTGOT]));
+      // the pltgot[0/1] is mprotect to PROT_READ only
+      gotplt[2] = i->plt_start;
+    }
+  }
+ret:
 #ifndef HAVE_INLINED_SYSCALLS
   /* Finished starting up.  */
   _dl_starting_up = 0;

@@ -185,6 +185,13 @@ elf_get_dynamic_info (struct link_map *l, bool bootstrap,
       /* If both RUNPATH and RPATH are given, the latter is ignored.  */
       info[DT_RPATH] = NULL;
    }
+    if (info[DT_PLTGOT])
+    {
+      l->plt_start = 0;
+      ElfW(Addr) *gotplt = (ElfW(Addr) *) (l->l_addr + info[DT_PLTGOT]->d_un.d_val);
+      l->plt_start = gotplt[2] + l->l_addr;
+    }
+
 }
 
 #endif

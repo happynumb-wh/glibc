@@ -1241,7 +1241,7 @@ typedef struct
 #define AT_L3_CACHESIZE		46
 #define AT_L3_CACHEGEOMETRY	47
 
-#define AT_MINSIGSTKSZ		51 /* Stack needed for signal delivery  */
+#define AT_MINSIGSTKSZ		60 /* Stack needed for signal delivery  */
 
 /* Note section contents.  Each entry in the note section begins with
    a header of a fixed form.  */

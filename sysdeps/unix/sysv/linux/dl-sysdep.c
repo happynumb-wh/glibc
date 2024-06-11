@@ -95,6 +95,10 @@ _dl_sysdep_parse_arguments (void **start_argptr,
   args->user_entry = auxv_values[AT_ENTRY];
 }
 
+
+// this is dasics flag, when we check AT_DASICS on the auxv, set to 1
+extern unsigned long dasics_flag;
+extern unsigned long trust_base;
 ElfW(Addr)
 _dl_sysdep_start (void **start_argptr,
 		  void (*dl_main) (const ElfW(Phdr) *phdr, ElfW(Word) phnum,

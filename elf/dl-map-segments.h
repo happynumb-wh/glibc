@@ -21,7 +21,7 @@
 
 /* Map a segment and align it properly.  */
 
-static __always_inline ElfW(Addr)
+static __attribute_noinline__ ElfW(Addr)
 _dl_map_segment (const struct loadcmd *c, ElfW(Addr) mappref,
 		 const size_t maplength, int fd)
 {
@@ -71,7 +71,9 @@ _dl_map_segment (const struct loadcmd *c, ElfW(Addr) mappref,
    pages inside the gaps with PROT_NONE mappings rather than permitting
    other use of those parts of the address space).  */
 
-static __always_inline const char *
+extern unsigned long dasics_flag;
+extern unsigned long trust_base;
+static __attribute_noinline__ const char *
 _dl_map_segments (struct link_map *l, int fd,
                   const ElfW(Ehdr) *header, int type,
                   const struct loadcmd loadcmds[], size_t nloadcmds,
@@ -96,9 +98,48 @@ _dl_map_segments (struct link_map *l, int fd,
       ElfW(Addr) mappref
         = (ELF_PREFERRED_ADDRESS (loader, maplength, c->mapstart)
            - MAP_BASE_ADDR (l));
+      
+      /* First, we will juege the dasics_flag, if it has been seted to 1
+         we will judge whether the library's name equal to "libc.so.6"
+      */
+      // Do a Test for bug
+      // if (!strcmp(get_real_name(l->l_name), "libc.so.6"))
+      //   {
+      //     trust_base = 0x80000;
+      //     goto map_trust_only;
+      //   }
 
+      if (__glibc_likely(dasics_flag == 0) || \
+            __glibc_unlikely(dasics_flag == 2) || \
+             __glibc_unlikely(dasics_flag == 3))
+      {
+        // if (__glibc_unlikely(dasics_flag == 3) && !strcmp(get_real_name(l->l_name), "libc.so.6"))
+        // {
+        //   goto map_trust_only;
+        // }
+
+        goto no_dasics;
+      }
+        
+      
+      
+      if (is_trust_lib(get_real_name(l->l_name)))
+      {
+map_trust_only:        
+        l->l_map_start = (ElfW(Addr)) __mmap (trust_base, maplength,
+                                              c->prot,
+                                              MAP_FIXED| MAP_COPY|MAP_FILE,
+                                              fd, c->mapoff);   
+        trust_base += ALIGN_UP(maplength, GLRO(dl_pagesize));
+        goto do_dasics;     
+      }
+
+
+no_dasics:
       /* Remember which part of the address space this object uses.  */
       l->l_map_start = _dl_map_segment (c, mappref, maplength, fd);
+do_dasics:
+
       if (__glibc_unlikely ((void *) l->l_map_start == MAP_FAILED))
         return DL_MAP_SEGMENTS_ERROR_MAP_SEGMENT;
 

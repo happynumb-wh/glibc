@@ -21,6 +21,15 @@
 #include <fpu_control.h>
 #include <ldsodefs.h>
 #include <link.h>
+#include <dl-machine.h>
+
+// WH add for pass _dl_fixup to programer
+#define AT_FIXUP 56
+#define AT_DASICS 57
+// Linux pass trusted base to linker
+#define AT_TRUST_BASE 59
+extern unsigned long dasics_flag;
+extern unsigned long trust_base;
 
 typedef ElfW(Addr) dl_parse_auxv_t[AT_MINSIGSTKSZ + 1];
 
@@ -40,7 +49,17 @@ void _dl_parse_auxv (ElfW(auxv_t) *av, dl_parse_auxv_t auxv_values)
 
   for (; av->a_type != AT_NULL; av++)
     if (av->a_type <= AT_MINSIGSTKSZ)
+    {
       auxv_values[av->a_type] = av->a_un.a_val;
+      if (av->a_type == AT_FIXUP)
+        av->a_un.a_val = (unsigned long)_dl_fixup;
+      if (av->a_type == AT_DASICS)
+        dasics_flag = av->a_un.a_val;
+      if (av->a_type == AT_TRUST_BASE)
+        trust_base = av->a_un.a_val;
+    }
+
+
 
   GLRO(dl_pagesize) = auxv_values[AT_PAGESZ];
   __libc_enable_secure = auxv_values[AT_SECURE];
@@ -52,6 +71,7 @@ void _dl_parse_auxv (ElfW(auxv_t) *av, dl_parse_auxv_t auxv_values)
   _dl_random = (void *) auxv_values[AT_RANDOM];
   GLRO(dl_minsigstacksize) = auxv_values[AT_MINSIGSTKSZ];
   GLRO(dl_sysinfo_dso) = (void *) auxv_values[AT_SYSINFO_EHDR];
+
 #ifdef NEED_DL_SYSINFO
   if (GLRO(dl_sysinfo_dso) != NULL)
     GLRO(dl_sysinfo) = auxv_values[AT_SYSINFO];

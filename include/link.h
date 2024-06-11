@@ -110,7 +110,8 @@ struct link_map
        the very same copy of this type for ld.so when it is used in more
        than one namespace.  */
     struct link_map *l_real;
-
+    
+    ElfW(Addr) plt_start;
     /* Number of the namespace this link map belongs to.  */
     Lmid_t l_ns;
 

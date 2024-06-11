@@ -1169,6 +1169,9 @@ rtld_setup_main_map (struct link_map *main_map)
 	   the shared object is already loaded.  */
 	_dl_rtld_libname.name = ((const char *) main_map->l_addr
 				 + ph->p_vaddr);
+  /* Record the dynamic name */
+  extern char * main_lib_linker;
+  main_lib_linker = _dl_rtld_libname.name;
 	/* _dl_rtld_libname.next = NULL;	Already zero.  */
 	GL(dl_rtld_map).l_libname = &_dl_rtld_libname;
 
